@@ -1,0 +1,176 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Connection URL moved out of schema (Prisma 7+). Configure connection in prisma.config.ts
+}
+
+enum Role {
+  USER
+  ADMIN
+  ARTIST
+}
+
+enum Tier {
+  FREE
+  PREMIUM
+}
+
+enum AlbumType {
+  ALBUM
+  SINGLE
+  EP
+  COMPILATION
+}
+
+model User {
+  id           String         @id @default(uuid())
+  email        String         @unique
+  passwordHash String
+  role         Role           @default(USER)
+  tier         Tier           @default(FREE)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  playlists    Playlist[]
+  likes        Like[]
+  downloads    Download[]
+  playHistory  PlayHistory[]
+  subscription Subscription?
+  artistProfile Artist?
+}
+
+model Artist {
+  id        String   @id @default(uuid())
+  name      String
+  bio       String?
+  avatarUrl String?
+  country   String?
+  verified  Boolean  @default(false)
+  
+  userId    String?  @unique
+  user      User?    @relation(fields: [userId], references: [id])
+  
+  albums    Album[]
+  tracks    Track[]
+}
+
+model Genre {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  coverUrl    String?
+  albums      Album[]
+}
+
+model Album {
+  id          String    @id @default(uuid())
+  title       String
+  artistId    String
+  coverUrl    String?
+  releaseDate DateTime
+  type        AlbumType @default(ALBUM)
+  genreId     String
+  
+  artist      Artist    @relation(fields: [artistId], references: [id])
+  genre       Genre     @relation(fields: [genreId], references: [id])
+  tracks      Track[]
+  likes       Like[]
+}
+
+model Track {
+  id          String   @id @default(uuid())
+  title       String
+  albumId     String
+  artistId    String
+  duration    Int      // in seconds
+  fileUrl     String
+  previewUrl  String?
+  bitrate     Int
+  trackNumber Int
+  explicit    Boolean  @default(false)
+
+  album       Album    @relation(fields: [albumId], references: [id])
+  artist      Artist   @relation(fields: [artistId], references: [id])
+  
+  playlists   PlaylistTrack[]
+  likes       Like[]
+  downloads   Download[]
+  playHistory PlayHistory[]
+}
+
+model Playlist {
+  id          String   @id @default(uuid())
+  title       String
+  userId      String
+  coverUrl    String?
+  isPublic    Boolean  @default(false)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id])
+  tracks      PlaylistTrack[]
+}
+
+model PlaylistTrack {
+  id         String   @id @default(uuid())
+  playlistId String
+  trackId    String
+  position   Int
+  addedAt    DateTime @default(now())
+
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  track      Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  userId    String
+  trackId   String?
+  albumId   String?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track     Track?   @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  album     Album?   @relation(fields: [albumId], references: [id], onDelete: Cascade)
+}
+
+model Download {
+  id            String   @id @default(uuid())
+  userId        String
+  trackId       String
+  quality       String
+  encryptedPath String
+  expiresAt     DateTime
+  downloadedAt  DateTime @default(now())
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track         Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+}
+
+model PlayHistory {
+  id               String   @id @default(uuid())
+  userId           String
+  trackId          String
+  playedAt         DateTime @default(now())
+  durationListened Int
+
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track            Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+}
+
+model Subscription {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  stripeCustomerId String
+  stripeSubId      String
+  plan             String
+  status           String
+  currentPeriodEnd DateTime
+
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
